@@ -1,0 +1,10 @@
+const jsonString = '{"Scenarios": {"ONG": [{"S_no":1,"name": "John", "age": 30, "city": "New York"},{"S_no":2,"name": "Jane", "age": 25, "city": "Los Angeles"},{"S_no":3,"name": "Bob", "age": 40, "city": "Chicago"}]}}';
+
+try {
+  const jsonObject = JSON.parse(jsonString);
+  const ongArray = jsonObject.Scenarios.ONG;
+
+  console.log(ongArray); // This will print the entire array of objects
+} catch (error) {
+  console.error("Error parsing JSON:", error);
+}
