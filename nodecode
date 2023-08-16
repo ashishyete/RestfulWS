@@ -8,3 +8,38 @@ try {
 } catch (error) {
   console.error("Error parsing JSON:", error);
 }
+
+
+import { Component, OnInit } from '@angular/core';
+
+@Component({
+  selector: 'app-json-display',
+  template: `
+    <div *ngFor="let keyValue of keyValues">
+      <strong>{{ keyValue.key }}:</strong> {{ keyValue.value }}
+    </div>
+  `,
+})
+export class JsonDisplayComponent implements OnInit {
+  keyValues: { key: string; value: any }[] = [];
+
+  ngOnInit() {
+    const jsonString = `
+      {
+        "results": {
+          "premiums": {
+            "premium_type": ["REG"],
+            "monthly_premium": ["(coverage/1000)*0.0996"]
+          }
+        }
+      }
+    `;
+
+    const jsonObject = JSON.parse(jsonString).results;
+
+    for (const key in jsonObject) {
+      const value = jsonObject[key];
+      this.keyValues.push({ key: key, value: value });
+    }
+  }
+}
