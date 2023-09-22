@@ -43,3 +43,115 @@ export class JsonDisplayComponent implements OnInit {
     }
   }
 }
+
+
+
+========================
+
+const express = require('express');
+const router = express.Router();
+
+// Define your route handler function
+router.get('/yourRoute', async (req, res) => {
+  try {
+    // Step 1: Get error records
+    const errorRecords = await getErrorRecords();
+    
+    if (errorRecords.length === 0) {
+      console.log("No Error records found");
+      return res.status(200).send("No Error records found");
+    }
+    
+    // Step 2: Log in and get JWT
+    const token_jwt = await loginJwt();
+
+    // Step 3: Get beta_id details
+    const responseData = await getBetaIdDetails(errorRecords);
+
+    // Step 4: Call API for each record
+    for (const record of responseData) {
+      await callApi(record);
+    }
+
+    // Respond with success message
+    res.status(200).send("Success");
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
+// Define your database queries, API calls, and other functions here
+async function getErrorRecords() {
+  // Implement your database query logic here
+  // Return the error records as an array
+  return [];
+}
+
+async function loginJwt() {
+  // Implement your API call to get JWT here
+  // Return the JWT as a string
+  return "your_jwt_here";
+}
+
+async function getBetaIdDetails(errorRecords) {
+  // Implement your database query logic here to fetch beta_id details
+  // Map the data to the required format and return an array of responseData
+  return [];
+}
+
+async function callApi(record) {
+  // Implement your API call logic here for each record
+  // Check the response and handle errors accordingly
+  // You can use libraries like Axios for API calls
+  // Example:
+  // const response = await axios.post(apiUrl, record);
+  // if (response.status === 201 || response.status === 200) {
+  //   console.log("Success");
+  // } else {
+  //   console.error("Error:", response.statusText);
+  // }
+}
+
+module.exports = router;
+
+========================================
+
+async function getBetaIdDetails(errorRecords) {
+  const responseData = [];
+
+  for (const errorRecord of errorRecords) {
+    const { client_id, client_type, org_id, status } = errorRecord;
+
+    // Implement your database query logic to fetch beta_id details
+    // For example, assuming you have a function fetchBetaIdDetailsByOrgId
+    const betaIdDetails = await fetchBetaIdDetailsByOrgId(org_id);
+
+    if (betaIdDetails) {
+      const { beta_id, first_name, last_name } = betaIdDetails;
+
+      // Create a payload object for this error record
+      const payload = {
+        beta_id: beta_id,
+        first_name: first_name,
+        last_name: last_name,
+        client_id: client_id,
+        org_id: org_id,
+        client_type: client_type,
+        status: status,
+      };
+
+      // Push the payload object into the responseData array
+      responseData.push(payload);
+    }
+  }
+
+  return responseData;
+}
+
+
+
+
+
+
+
