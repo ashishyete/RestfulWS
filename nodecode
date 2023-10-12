@@ -151,6 +151,18 @@ async function getBetaIdDetails(errorRecords) {
 
 
 
+WITH dynamic_query AS (
+  SELECT DISTINCT proj_nm, team_nm
+  FROM your_dynamic_query_table_or_source
+)
+
+SELECT t.*
+FROM t_main t
+LEFT JOIN dynamic_query dq ON t.proj_nm = dq.proj_nm AND t.team_nm = dq.team_nm
+WHERE dq.proj_nm IS NULL AND dq.team_nm IS NULL;
+
+
+
 
 
 
