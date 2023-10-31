@@ -183,6 +183,24 @@ WHERE dq.proj_nm IS NULL AND dq.team_nm IS NULL;
 
 
 
+<div class="accordion accordion-flush" id="projectAccordion">
+  <div *ngFor="let project of responseData.data" class="accordion-item">
+    <h2 class="accordion-header" id="heading{{ project.proj_nm }}">
+      <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ project.proj_nm }}" aria-expanded="true" aria-controls="collapse{{ project.proj_nm }}">
+        {{ project.proj_nm }}
+      </button>
+    </h2>
+    <div id="collapse{{ project.proj_nm }}" class="accordion-collapse collapse" aria-labelledby="heading{{ project.proj_nm }}" data-bs-parent="#projectAccordion">
+      <div class="accordion-body">
+        <ul>
+          <li *ngFor="let category of project.categories">
+            {{ category.cat_nm }}: {{ category.flg }}
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
 
 
 
