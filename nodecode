@@ -203,6 +203,41 @@ WHERE dq.proj_nm IS NULL AND dq.team_nm IS NULL;
 </div>
 
 
+#!/bin/bash
+
+# Define PostgreSQL connection parameters for MirrorDB
+MIRROR_DB_HOST="mirror_db_host"
+MIRROR_DB_PORT="mirror_db_port"
+MIRROR_DB_NAME="MirrorDB"
+MIRROR_DB_USER="mirror_db_user"
+MIRROR_DB_PASSWORD="mirror_db_password"
+
+# Define PostgreSQL connection parameters for GoldDB
+GOLD_DB_HOST="gold_db_host"
+GOLD_DB_PORT="gold_db_port"
+GOLD_DB_NAME="GoldDB"
+GOLD_DB_USER="gold_db_user"
+GOLD_DB_PASSWORD="gold_db_password"
+
+# Table to copy
+TABLE_NAME="t_demo"
+
+# Dump data from the MirrorDB (without table creation)
+PGPASSWORD="$MIRROR_DB_PASSWORD" pg_dump -h $MIRROR_DB_HOST -p $MIRROR_DB_PORT -U $MIRROR_DB_USER -W -a -v -f $TABLE_NAME.dump $MIRROR_DB_NAME --table=$TABLE_NAME
+
+# Truncate the destination table in GoldDB
+psql -h $GOLD_DB_HOST -p $GOLD_DB_PORT -U $GOLD_DB_USER -W -d $GOLD_DB_NAME -c "TRUNCATE $TABLE_NAME RESTART IDENTITY;"
+
+# Restore data to the GoldDB (without table creation)
+PGPASSWORD="$GOLD_DB_PASSWORD" pg_restore -h $GOLD_DB_HOST -p $GOLD_DB_PORT -U $GOLD_DB_USER --data-only -v $TABLE_NAME.dump -d $GOLD_DB_NAME
+
+# Remove the dump file
+rm $TABLE_NAME.dump
+
+echo "Data copy from MirrorDB to GoldDB for table $TABLE_NAME completed."
+
+
+
 
 
 
