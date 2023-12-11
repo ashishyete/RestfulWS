@@ -237,6 +237,64 @@ rm $TABLE_NAME.dump
 echo "Data copy from MirrorDB to GoldDB for table $TABLE_NAME completed."
 
 
+#!/bin/bash
+set -e
+
+# Define PostgreSQL connection parameters for MirrorDB
+MIRROR_DB_HOST="mirror_db_host"
+MIRROR_DB_PORT="mirror_db_port"
+MIRROR_DB_NAME="MirrorDB"
+MIRROR_DB_USER="mirror_db_user"
+MIRROR_DB_PASSWORD="mirror_db_password"
+
+# Define PostgreSQL connection parameters for GoldDB
+GOLD_DB_HOST="gold_db_host"
+GOLD_DB_PORT="gold_db_port"
+GOLD_DB_NAME="GoldDB"
+GOLD_DB_USER="gold_db_user"
+GOLD_DB_PASSWORD="gold_db_password"
+
+# Specify the source schema
+SOURCE_SCHEMA="public"
+
+# Get a list of tables in the source schema for MirrorDB
+MIRROR_TABLES=($(PGPASSWORD="$MIRROR_DB_PASSWORD" psql -h $MIRROR_DB_HOST -p $MIRROR_DB_PORT -U $MIRROR_DB_USER -d $MIRROR_DB_NAME -t -c "SELECT table_name FROM information_schema.tables WHERE table_schema = '$SOURCE_SCHEMA';"))
+
+# Get a list of tables in the source schema for GoldDB
+GOLD_TABLES=($(PGPASSWORD="$GOLD_DB_PASSWORD" psql -h $GOLD_DB_HOST -p $GOLD_DB_PORT -U $GOLD_DB_USER -d $GOLD_DB_NAME -t -c "SELECT table_name FROM information_schema.tables WHERE table_schema = '$SOURCE_SCHEMA';"))
+
+# Check if the counts are different and abort if they are
+if [ "${#MIRROR_TABLES[@]}" -ne "${#GOLD_TABLES[@]}" ]; then
+  echo "Error: The counts of tables in MirrorDB and GoldDB are different. Aborting script."
+  exit 1
+fi
+
+# Identify tables that are in MirrorDB but not in GoldDB
+DIFF_TABLES=()
+for TABLE in "${MIRROR_TABLES[@]}"; do
+  if [[ ! " ${GOLD_TABLES[@]} " =~ " $TABLE " ]]; then
+    DIFF_TABLES+=("$TABLE")
+  fi
+done
+
+# Iterate over each different table and perform dump and restore
+for TABLE_NAME in "${DIFF_TABLES[@]}"; do
+  # Dump data from the MirrorDB (custom format)
+  PGPASSWORD="$MIRROR_DB_PASSWORD" pg_dump -h $MIRROR_DB_HOST -p $MIRROR_DB_PORT -U $MIRROR_DB_USER -F c -v -f $TABLE_NAME.dump $MIRROR_DB_NAME --table=$SOURCE_SCHEMA.$TABLE_NAME
+
+  # Truncate the destination table in GoldDB
+  PGPASSWORD="$GOLD_DB_PASSWORD" psql -h $GOLD_DB_HOST -p $GOLD_DB_PORT -U $GOLD_DB_USER -d $GOLD_DB_NAME -c "TRUNCATE $SOURCE_SCHEMA.$TABLE_NAME CASCADE;"
+
+  # Restore data to the GoldDB (custom format)
+  PGPASSWORD="$GOLD_DB_PASSWORD" pg_restore -h $GOLD_DB_HOST -p $GOLD_DB_PORT -U $GOLD_DB_USER -v $TABLE_NAME.dump -d $GOLD_DB_NAME
+
+  # Remove the dump file
+  rm $TABLE_NAME.dump
+
+  echo "Data copy from MirrorDB to GoldDB for table $SOURCE_SCHEMA.$TABLE_NAME completed."
+done
+
+echo "Data copy from MirrorDB to GoldDB for all different tables completed."
 
 
 
