@@ -296,6 +296,7 @@ done
 
 echo "Data copy from MirrorDB to GoldDB for all different tables completed."
 
+      PGPASSWORD="$GOLD_DB_PASSWORD" psql -h $GOLD_DB_HOST -p $GOLD_DB_PORT -U $GOLD_DB_USER -d $GOLD_DB_NAME -c "CREATE TABLE $SOURCE_SCHEMA.$TABLE AS SELECT * FROM $MIRROR_DB_NAME.$SOURCE_SCHEMA.$TABLE WHERE 1=0;"
 
 
 
