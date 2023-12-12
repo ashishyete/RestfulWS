@@ -347,4 +347,67 @@ fi
 echo "Data copy from MirrorDB to GoldDB for all different tables completed." >> "$LOG_FILE"
 
 
+----------------------------------------------------------------------------------------------------------
+
+#!/bin/bash
+set -e
+
+LOG_FOLDER="/path/to/your/log/folder"
+LOG_FILE="$LOG_FOLDER/script_log_$(date '+%Y%m%d_%H%M%S').txt"
+
+# List of schemas to process
+SCHEMAS=("schema1" "schema2" "schema3")
+
+# Number of parallel threads to use
+NUM_THREADS=4
+
+# Check if the log folder exists, and create it if not
+if [ ! -d "$LOG_FOLDER" ]; then
+  mkdir -p "$LOG_FOLDER"
+fi
+
+# Function to process a schema
+process_schema() {
+  local SCHEMA="$1"
+
+  # Get a list of tables in the source schema for MirrorDB
+  MIRROR_TABLES=($(PGPASSWORD="$MIRROR_DB_PASSWORD" psql -h $MIRROR_DB_HOST -p $MIRROR_DB_PORT -U $MIRROR_DB_USER -d $MIRROR_DB_NAME -t -c "SELECT table_name FROM information_schema.tables WHERE table_schema = '$SCHEMA';"))
+
+  # Get a list of tables in the source schema for GoldDB
+  GOLD_TABLES=($(PGPASSWORD="$GOLD_DB_PASSWORD" psql -h $GOLD_DB_HOST -p $GOLD_DB_PORT -U $GOLD_DB_USER -d $GOLD_DB_NAME -t -c "SELECT table_name FROM information_schema.tables WHERE table_schema = '$SCHEMA';"))
+
+  # Check if the counts are different and log the difference if they are
+  if [ "${#MIRROR_TABLES[@]}" -ne "${#GOLD_TABLES[@]}" ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Error: The counts of tables in MirrorDB and GoldDB for schema $SCHEMA are different. Aborting script." >> "$LOG_FILE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Tables present in MirrorDB but not in GoldDB for schema $SCHEMA:" >> "$LOG_FILE"
+
+    # Identify tables that are in MirrorDB but not in GoldDB
+    for TABLE in "${MIRROR_TABLES[@]}"; do
+      if [[ ! " ${GOLD_TABLES[@]} " =~ " $TABLE " ]]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - $TABLE" >> "$LOG_FILE"
+
+        # Dump the table structure and data from MirrorDB to a compressed file
+        PGPASSWORD="$MIRROR_DB_PASSWORD" pg_dump -h $MIRROR_DB_HOST -p $MIRROR_DB_PORT -U $MIRROR_DB_USER -F c -Z 9 -t $SCHEMA.$TABLE $MIRROR_DB_NAME -f $TABLE.dump.gz
+
+        # Restore the table structure and data in GoldDB
+        gunzip -c $TABLE.dump.gz | PGPASSWORD="$GOLD_DB_PASSWORD" pg_restore -h $GOLD_DB_HOST -p $GOLD_DB_PORT -U $GOLD_DB_USER -d $GOLD_DB_NAME -v -
+
+        # Remove the compressed dump file
+        rm $TABLE.dump.gz
+      fi
+    done
+
+    exit 1
+  fi
+}
+
+# Export the function to make it available to parallel
+export -f process_schema
+
+# Run the process for each schema in parallel
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting data copy from MirrorDB to GoldDB for all different tables and schemas." >> "$LOG_FILE"
+parallel -j $NUM_THREADS process_schema ::: "${SCHEMAS[@]}"
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Data copy from MirrorDB to GoldDB for all different tables and schemas completed." >> "$LOG_FILE"
+---------------------------------------------------------------------------------------------------------------
+
 
