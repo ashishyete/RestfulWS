@@ -477,3 +477,77 @@ wait
 echo "$(date '+%Y-%m-%d %H:%M:%S') - Data copy from MirrorDB to GoldDB for all different tables and schemas completed." >> "$LOG_FILE"
 
 
+----
+
+
+If you want to parallelize the process for multiple schemas, you can modify the script to iterate over multiple schemas and then execute the process for each schema in parallel. Here's an example:
+
+```bash
+#!/bin/bash
+set -e
+
+# Define PostgreSQL connection parameters for MirrorDB
+MIRROR_DB_HOST="mirror_db_host"
+MIRROR_DB_PORT="mirror_db_port"
+MIRROR_DB_NAME="MirrorDB"
+MIRROR_DB_USER="mirror_db_user"
+MIRROR_DB_PASSWORD="mirror_db_password"
+
+# Define PostgreSQL connection parameters for GoldDB
+GOLD_DB_HOST="gold_db_host"
+GOLD_DB_PORT="gold_db_port"
+GOLD_DB_NAME="GoldDB"
+GOLD_DB_USER="gold_db_user"
+GOLD_DB_PASSWORD="gold_db_password"
+
+# Specify the list of source schemas
+SOURCE_SCHEMAS=("schema1" "schema2" "schema3")
+
+# Function to perform pg_dump and restore for a schema
+function process_schema() {
+  local SOURCE_SCHEMA=$1
+  local TABLES=$(PGPASSWORD="$MIRROR_DB_PASSWORD" psql -h $MIRROR_DB_HOST -p $MIRROR_DB_PORT -U $MIRROR_DB_USER -d $MIRROR_DB_NAME -t -c "SELECT table_name FROM information_schema.tables WHERE table_schema = '$SOURCE_SCHEMA';")
+
+  local EXISTING_TABLES=$(PGPASSWORD="$GOLD_DB_PASSWORD" psql -h $GOLD_DB_HOST -p $GOLD_DB_PORT -U $GOLD_DB_USER -d $GOLD_DB_NAME -t -c "SELECT table_name FROM information_schema.tables WHERE table_schema = '$SOURCE_SCHEMA';")
+
+  local DELTA_TABLES=()
+  for TABLE_NAME in $TABLES; do
+    if [[ ! " ${EXISTING_TABLES[@]} " =~ " $TABLE_NAME " ]]; then
+      DELTA_TABLES+=("$TABLE_NAME")
+    fi
+  done
+
+  # Iterate over each table in parallel (using GNU Parallel)
+  export -f dump_and_restore
+  echo "${DELTA_TABLES[@]}" | tr ' ' '\n' | parallel -j10 dump_and_restore $SOURCE_SCHEMA
+}
+
+# Function to perform pg_dump and restore for a table
+function dump_and_restore() {
+  local SOURCE_SCHEMA=$1
+  local TABLE_NAME=$2
+  echo "Processing table: $SOURCE_SCHEMA.$TABLE_NAME"
+  
+  # Dump data from the MirrorDB (custom format)
+  PGPASSWORD="$MIRROR_DB_PASSWORD" pg_dump -h $MIRROR_DB_HOST -p $MIRROR_DB_PORT -U $MIRROR_DB_USER -F c -v -f $SOURCE_SCHEMA.$TABLE_NAME.dump $MIRROR_DB_NAME --table=$SOURCE_SCHEMA.$TABLE_NAME
+
+  # Truncate the destination table in GoldDB
+  PGPASSWORD="$GOLD_DB_PASSWORD" psql -h $GOLD_DB_HOST -p $GOLD_DB_PORT -U $GOLD_DB_USER -d $GOLD_DB_NAME -c "TRUNCATE $SOURCE_SCHEMA.$TABLE_NAME CASCADE;"
+
+  # Restore data to the GoldDB (custom format)
+  PGPASSWORD="$GOLD_DB_PASSWORD" pg_restore -h $GOLD_DB_HOST -p $GOLD_DB_PORT -U $GOLD_DB_USER -v $SOURCE_SCHEMA.$TABLE_NAME.dump -d $GOLD_DB_NAME
+
+  # Remove the dump file
+  rm $SOURCE_SCHEMA.$TABLE_NAME.dump
+
+  echo "Data copy from MirrorDB to GoldDB for table $SOURCE_SCHEMA.$TABLE_NAME completed."
+}
+
+# Iterate over each schema and perform the process in parallel
+export -f process_schema
+echo "${SOURCE_SCHEMAS[@]}" | tr ' ' '\n' | parallel -j5 process_schema
+```
+
+In this example, the script processes multiple source schemas in parallel, and for each schema, it iterates over the tables in parallel. Adjust the number of parallel jobs (`-j` option) as needed for your system's capabilities.
+
+--
