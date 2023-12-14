@@ -615,3 +615,96 @@ This script defines a loop that iterates over each schema in the `SOURCE_SCHEMAS
 In this example, the script processes multiple source schemas in parallel, and for each schema, it iterates over the tables in parallel. Adjust the number of parallel jobs (`-j` option) as needed for your system's capabilities.
 
 --
+
+
+
+
+#!/bin/bash
+set -e
+
+# Define PostgreSQL connection parameters for MirrorDB
+MIRROR_DB_HOST="mirror_db_host"
+MIRROR_DB_PORT="mirror_db_port"
+MIRROR_DB_NAME="MirrorDB"
+MIRROR_DB_USER="mirror_db_user"
+MIRROR_DB_PASSWORD="mirror_db_password"
+
+# Define PostgreSQL connection parameters for GoldDB
+GOLD_DB_HOST="gold_db_host"
+GOLD_DB_PORT="gold_db_port"
+GOLD_DB_NAME="GoldDB"
+GOLD_DB_USER="gold_db_user"
+GOLD_DB_PASSWORD="gold_db_password"
+
+# Specify the source schema
+SOURCE_SCHEMA="public"
+
+# Execute the SQL query to get a list of tables with foreign key dependencies
+TABLES_WITH_DEPENDENCIES=$(PGPASSWORD="$MIRROR_DB_PASSWORD" psql -h $MIRROR_DB_HOST -p $MIRROR_DB_PORT -U $MIRROR_DB_USER -d $MIRROR_DB_NAME -t -c "
+WITH RecursiveDependencies AS (
+  SELECT
+    conname,
+    conrelid::regclass AS table_name,
+    confrelid::regclass AS referenced_table
+  FROM
+    pg_constraint
+  WHERE
+    confrelid IS NOT NULL
+  UNION
+  SELECT
+    dep.conname,
+    dep.conrelid::regclass AS table_name,
+    dep.confrelid::regclass AS referenced_table
+  FROM
+    pg_constraint AS dep
+    INNER JOIN RecursiveDependencies AS rd ON dep.conrelid = rd.referenced_table
+)
+SELECT DISTINCT
+  t.table_schema,
+  t.table_name
+FROM
+  information_schema.tables AS t
+  LEFT JOIN RecursiveDependencies AS rd ON t.table_name::regclass = rd.table_name
+ORDER BY
+  rd.conname DESC NULLS FIRST,
+  t.table_schema,
+  t.table_name;
+")
+
+# Check if the counts are different and abort if they are
+MIRROR_TABLES=($(PGPASSWORD="$MIRROR_DB_PASSWORD" psql -h $MIRROR_DB_HOST -p $MIRROR_DB_PORT -U $MIRROR_DB_USER -d $MIRROR_DB_NAME -t -c "SELECT table_name FROM information_schema.tables WHERE table_schema = '$SOURCE_SCHEMA';"))
+GOLD_TABLES=($(PGPASSWORD="$GOLD_DB_PASSWORD" psql -h $GOLD_DB_HOST -p $GOLD_DB_PORT -U $GOLD_DB_USER -d $GOLD_DB_NAME -t -c "SELECT table_name FROM information_schema.tables WHERE table_schema = '$SOURCE_SCHEMA';"))
+
+if [ "${#MIRROR_TABLES[@]}" -ne "${#GOLD_TABLES[@]}" ]; then
+  echo "Error: The counts of tables in MirrorDB and GoldDB are different. Aborting script."
+  exit 1
+fi
+
+# Loop through the tables and perform dump, truncate, and restore
+while read -r TABLE; do
+  TABLE_SCHEMA=$(echo "$TABLE" | cut -d ' ' -f 1)
+  TABLE_NAME=$(echo "$TABLE" | cut -d ' ' -f 2)
+
+  # Check if the table starts with 'v_'
+  if [[ $TABLE_NAME == v_* ]]; then
+    echo "Skipping view $TABLE_SCHEMA.$TABLE_NAME."
+    continue
+  fi
+
+  # Dump data from the MirrorDB (custom format)
+  PGPASSWORD="$MIRROR_DB_PASSWORD" pg_dump -h $MIRROR_DB_HOST -p $MIRROR_DB_PORT -U $MIRROR_DB_USER -F c -v -f $TABLE_NAME.dump $MIRROR_DB_NAME --table=$TABLE_SCHEMA.$TABLE_NAME
+
+  # Truncate the destination table in GoldDB
+  PGPASSWORD="$GOLD_DB_PASSWORD" psql -h $GOLD_DB_HOST -p $GOLD_DB_PORT -U $GOLD_DB_USER -d $GOLD_DB_NAME -c "TRUNCATE $TABLE_SCHEMA.$TABLE_NAME CASCADE;"
+
+  # Restore data to the GoldDB (custom format)
+  PGPASSWORD="$GOLD_DB_PASSWORD" pg_restore -h $GOLD_DB_HOST -p $GOLD_DB_PORT -U $GOLD_DB_USER -v $TABLE_NAME.dump -d $GOLD_DB_NAME
+
+  # Remove the dump file
+  rm $TABLE_NAME.dump
+
+  echo "Data copy from MirrorDB to GoldDB for table $TABLE_SCHEMA.$TABLE_NAME completed."
+done <<< "$TABLES_WITH_DEPENDENCIES"
+
+echo "Data copy from MirrorDB to GoldDB for all tables completed."
+
