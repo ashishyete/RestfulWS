@@ -708,3 +708,29 @@ done <<< "$TABLES_WITH_DEPENDENCIES"
 
 echo "Data copy from MirrorDB to GoldDB for all tables completed."
 
+
+
+----
+
+
+WITH RecursiveDependencies AS (
+  SELECT
+    conname,
+    conrelid::regclass AS table_name,
+    confrelid::regclass AS referenced_table
+  FROM
+    pg_constraint
+  WHERE
+    confrelid IS NOT NULL
+)
+SELECT DISTINCT
+  t.table_schema,
+  t.table_name
+FROM
+  information_schema.tables AS t
+  LEFT JOIN RecursiveDependencies AS rd ON t.table_name::regclass = rd.table_name
+ORDER BY
+  rd.conname DESC NULLS FIRST,
+  t.table_schema,
+  t.table_name;
+
