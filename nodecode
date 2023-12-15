@@ -778,3 +778,62 @@ GROUP BY
 ORDER BY
   num_referencing_tables DESC,
   t.table_name;
+
+
+
+
+-----------------
+
+
+
+
+#!/bin/bash
+set -e
+
+# Set your database connection parameters
+DB_HOST="your_db_host"
+DB_PORT="your_db_port"
+DB_NAME="your_db_name"
+DB_USER="your_db_user"
+DB_PASSWORD="your_db_password"
+
+# Set the schema and table name
+SCHEMA_NAME="your_schema_name"
+TABLE_NAME="your_table_name"
+
+# Function to dump, truncate, and restore a table
+process_table() {
+  local TABLE_NAME="$1"
+  
+  # Dump data from the source table (custom format)
+  PGPASSWORD="$DB_PASSWORD" pg_dump -h $DB_HOST -p $DB_PORT -U $DB_USER -F c -v -f $TABLE_NAME.dump $DB_NAME --table=$SCHEMA_NAME.$TABLE_NAME
+
+  # Truncate the destination table
+  PGPASSWORD="$DB_PASSWORD" psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "TRUNCATE $SCHEMA_NAME.$TABLE_NAME CASCADE;"
+
+  # Restore data to the destination table (custom format)
+  PGPASSWORD="$DB_PASSWORD" pg_restore -h $DB_HOST -p $DB_PORT -U $DB_USER -v $TABLE_NAME.dump -d $DB_NAME
+
+  # Remove the dump file
+  rm $TABLE_NAME.dump
+
+  echo "Data copy for table $SCHEMA_NAME.$TABLE_NAME completed."
+}
+
+# Get reference tables from the provided query
+REFERENCE_TABLES=($(PGPASSWORD="$DB_PASSWORD" psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT DISTINCT confrelid::regclass AS referenced_table FROM pg_constraint WHERE confrelid IS NOT NULL AND conrelid::regclass = '$SCHEMA_NAME.$TABLE_NAME'::regclass AND confrelid::regclass <> '0'::regclass;"))
+
+# Process reference tables first
+for REFERENCE_TABLE in "${REFERENCE_TABLES[@]}"; do
+  process_table "$REFERENCE_TABLE"
+done
+
+# Get other tables directly in SQL query
+OTHER_TABLES=($(PGPASSWORD="$DB_PASSWORD" psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT table_name FROM information_schema.tables WHERE table_schema = '$SCHEMA_NAME' AND table_name NOT IN ($(IFS=,; echo "${REFERENCE_TABLES[*]}"));"))
+
+# Process remaining tables
+for TABLE_NAME in "${OTHER_TABLES[@]}"; do
+  process_table "$TABLE_NAME"
+done
+
+echo "Data copy for all tables completed."
