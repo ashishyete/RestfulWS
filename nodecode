@@ -840,3 +840,24 @@ for SCHEMA_NAME in "${SCHEMA_NAMES[@]}"; do
   echo "Data copy for all tables in schema $SCHEMA_NAME completed."
 done
 
+
+
+
+SELECT
+  table_name,
+  table_schema,
+  (xpath('/row/cnt/text()', xml_count))[1]::text::int AS row_count
+FROM (
+  SELECT
+    table_name,
+    table_schema,
+    query_to_xml(format('SELECT count(*) as cnt FROM %I.%I', table_schema, table_name), true, false, '') AS xml_count
+  FROM
+    information_schema.tables
+  WHERE
+    table_schema = 'your_specific_schema' -- Replace with your specific schema
+    AND table_name NOT LIKE 'pg_%' -- Exclude system tables
+) AS counts
+ORDER BY
+  table_schema,
+  table_name;
