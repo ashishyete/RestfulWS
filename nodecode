@@ -762,3 +762,19 @@ ORDER BY
   rd.conname DESC NULLS FIRST,
   t.table_name;
 
+----
+
+
+SELECT
+  table_name,
+  COUNT(conname) AS num_referencing_tables
+FROM
+  information_schema.tables t
+  LEFT JOIN pg_constraint c ON t.table_name::regclass = c.confrelid::regclass
+WHERE
+  table_schema = 'your_schema_name' -- Replace with your actual schema name
+GROUP BY
+  t.table_name
+ORDER BY
+  num_referencing_tables DESC,
+  t.table_name;
