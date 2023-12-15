@@ -786,7 +786,6 @@ ORDER BY
 
 
 
-
 #!/bin/bash
 set -e
 
@@ -797,14 +796,14 @@ DB_NAME="your_db_name"
 DB_USER="your_db_user"
 DB_PASSWORD="your_db_password"
 
-# Set the schema and table name
-SCHEMA_NAME="your_schema_name"
-TABLE_NAME="your_table_name"
+# List of schema names
+SCHEMA_NAMES=("schema1" "schema2" "schema3")
 
 # Function to dump, truncate, and restore a table
 process_table() {
-  local TABLE_NAME="$1"
-  
+  local SCHEMA_NAME="$1"
+  local TABLE_NAME="$2"
+
   # Dump data from the source table (custom format)
   PGPASSWORD="$DB_PASSWORD" pg_dump -h $DB_HOST -p $DB_PORT -U $DB_USER -F c -v -f $TABLE_NAME.dump $DB_NAME --table=$SCHEMA_NAME.$TABLE_NAME
 
@@ -820,20 +819,24 @@ process_table() {
   echo "Data copy for table $SCHEMA_NAME.$TABLE_NAME completed."
 }
 
-# Get reference tables from the provided query
-REFERENCE_TABLES=($(PGPASSWORD="$DB_PASSWORD" psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT DISTINCT confrelid::regclass AS referenced_table FROM pg_constraint WHERE confrelid IS NOT NULL AND conrelid::regclass = '$SCHEMA_NAME.$TABLE_NAME'::regclass AND confrelid::regclass <> '0'::regclass;"))
+# Loop through each schema
+for SCHEMA_NAME in "${SCHEMA_NAMES[@]}"; do
+  # Get reference tables from the provided query
+  REFERENCE_TABLES=($(PGPASSWORD="$DB_PASSWORD" psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT DISTINCT confrelid::regclass AS referenced_table FROM pg_constraint WHERE confrelid IS NOT NULL AND conrelid::regclass = '$SCHEMA_NAME.$TABLE_NAME'::regclass AND confrelid::regclass <> '0'::regclass;"))
 
-# Process reference tables first
-for REFERENCE_TABLE in "${REFERENCE_TABLES[@]}"; do
-  process_table "$REFERENCE_TABLE"
+  # Process reference tables first
+  for REFERENCE_TABLE in "${REFERENCE_TABLES[@]}"; do
+    process_table "$SCHEMA_NAME" "$REFERENCE_TABLE"
+  done
+
+  # Get other tables directly in SQL query
+  OTHER_TABLES=($(PGPASSWORD="$DB_PASSWORD" psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT table_name FROM information_schema.tables WHERE table_schema = '$SCHEMA_NAME' AND table_name NOT IN ($(IFS=,; echo "${REFERENCE_TABLES[*]}"));"))
+
+  # Process remaining tables
+  for TABLE_NAME in "${OTHER_TABLES[@]}"; do
+    process_table "$SCHEMA_NAME" "$TABLE_NAME"
+  done
+
+  echo "Data copy for all tables in schema $SCHEMA_NAME completed."
 done
 
-# Get other tables directly in SQL query
-OTHER_TABLES=($(PGPASSWORD="$DB_PASSWORD" psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT table_name FROM information_schema.tables WHERE table_schema = '$SCHEMA_NAME' AND table_name NOT IN ($(IFS=,; echo "${REFERENCE_TABLES[*]}"));"))
-
-# Process remaining tables
-for TABLE_NAME in "${OTHER_TABLES[@]}"; do
-  process_table "$TABLE_NAME"
-done
-
-echo "Data copy for all tables completed."
