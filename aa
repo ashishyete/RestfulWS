@@ -20,19 +20,25 @@ OUTPUT_FILE="insert_queries.sql"
 # Batch size for each query
 BATCH_SIZE=100000
 
+# Counter for naming split files
+counter=1
+
 # Using pg_dump to generate insert statements with LIMIT and OFFSET
 OFFSET=0
 while true; do
     pg_dump -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME --table=$SCHEMA_NAME.$TABLE_NAME --data-only --column-inserts --no-password --inserts --limit=$BATCH_SIZE --offset=$OFFSET >> $OUTPUT_FILE
     # Break the loop if the last query returned fewer rows than the batch size
     [ "$(psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -tAc "SELECT COUNT(*) FROM $SCHEMA_NAME.$TABLE_NAME WHERE your_condition")" -lt $BATCH_SIZE ] && break
-    OFFSET=$((OFFSET + BATCH_SIZE))
-done
+    OFFSET=$((OFFSET + BATCH_SIZE + 1))
 
-# Split the output file into smaller files with 100,000 lines each
-split -l 100000 $OUTPUT_FILE insert_queries_
+    # Split the output file into smaller files with 100,000 lines each
+    split -l 100000 $OUTPUT_FILE "file_$counter"
+    
+    # Move the split files to have a .sql extension
+    for file in file_$counter*; do
+        mv "$file" "$file.sql"
+    done
 
-# Rename the split files to have a .sql extension
-for file in insert_queries_*; do
-    mv "$file" "$file.sql"
+    # Increment the counter
+    counter=$((counter + 1))
 done
