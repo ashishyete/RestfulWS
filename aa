@@ -42,3 +42,54 @@ while true; do
     # Increment the counter
     counter=$((counter + 1))
 done
+
+
+
+
+
+#!/bin/bash
+
+# Database connection parameters
+DB_HOST="your_host"
+DB_PORT="your_port"
+DB_NAME="your_database"
+DB_USER="your_user"
+DB_PASSWORD="your_password"
+
+# Table to be exported
+TABLE_NAME="your_table_name"
+SCHEMA_NAME="your_schema_name"
+
+# Set PGPASSWORD environment variable
+export PGPASSWORD=$DB_PASSWORD
+
+# Output SQL file
+OUTPUT_FILE="insert_queries.sql"
+
+# Batch size for each query
+BATCH_SIZE=100000
+
+# Counter for naming split files
+counter=1
+
+# Using pg_dump to generate insert statements with LIMIT and OFFSET
+OFFSET=0
+while true; do
+    pg_dump -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME --table=$SCHEMA_NAME.$TABLE_NAME --data-only --column-inserts --no-password --inserts --file=- | psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME --quiet --no-password --set ON_ERROR_STOP=on --set AUTOCOMMIT=off --single-transaction -c "COPY (SELECT * FROM $SCHEMA_NAME.$TABLE_NAME ORDER BY your_order_column OFFSET $OFFSET LIMIT $BATCH_SIZE) TO STDOUT" >> $OUTPUT_FILE
+
+    # Break the loop if the last query returned fewer rows than the batch size
+    [ "$(psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -tAc "SELECT COUNT(*) FROM $SCHEMA_NAME.$TABLE_NAME WHERE your_condition")" -lt $BATCH_SIZE ] && break
+    OFFSET=$((OFFSET + BATCH_SIZE))
+
+    # Split the output file into smaller files with 100,000 lines each
+    split -l 100000 $OUTPUT_FILE "file_$counter"
+    
+    # Move the split files to have a .sql extension
+    for file in file_$counter*; do
+        mv "$file" "$file.sql"
+    done
+
+    # Increment the counter
+    counter=$((counter + 1))
+done
+
