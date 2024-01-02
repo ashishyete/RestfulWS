@@ -1,0 +1,42 @@
+const { Client } = require('pg');
+
+// Replace these values with your actual PostgreSQL connection details
+const dbConfig = {
+  user: process.env.PGUSER || 'your_database_user',
+  host: process.env.PGHOST || 'your_database_host',
+  database: process.env.PGDATABASE || 'your_database_name',
+  password: 'your_constant_password', // Replace with your constant password
+  port: process.env.PGPORT || 'your_database_port'
+};
+
+// Create a new PostgreSQL client
+const client = new Client(dbConfig);
+
+// Connect to the database
+client.connect()
+  .then(() => {
+    console.log('Connected to the database');
+
+    // Perform your database operation here
+
+    // Example: Query to fetch data
+    const query = 'SELECT * FROM your_table';
+    return client.query(query);
+  })
+  .then(result => {
+    // Process the result of your database operation
+    console.log('Query result:', result.rows);
+  })
+  .catch(error => {
+    console.error('Error:', error);
+  })
+  .finally(() => {
+    // Close the database connection
+    client.end()
+      .then(() => {
+        console.log('Disconnected from the database');
+      })
+      .catch(error => {
+        console.error('Error closing the connection:', error);
+      });
+  });
