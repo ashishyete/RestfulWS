@@ -1,0 +1,24 @@
+CREATE OR REPLACE FUNCTION update_wi_num(response_data text)
+RETURNS INT AS $$
+DECLARE
+    rows_updated INT := 0;
+BEGIN
+    -- Convert the text parameter to a jsonb object
+    response_jsonb := response_data::jsonb;
+
+    -- Iterate over each item in the data array
+    FOR item_record IN SELECT * FROM jsonb_array_elements(response_jsonb->'data')
+    LOOP
+        -- Update the wi_num in the target_table based on ws_id
+        UPDATE target_table
+        SET wi_num = item_record->>'wi_num'
+        WHERE ws_id = (item_record->>'ws_id')::INT;
+
+        -- Increment the count of rows updated
+        rows_updated := rows_updated + 1;
+    END LOOP;
+
+    -- Return the number of rows updated
+    RETURN rows_updated;
+END;
+$$ LANGUAGE plpgsql;
