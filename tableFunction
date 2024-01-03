@@ -1,0 +1,30 @@
+CREATE OR REPLACE FUNCTION insert_data_from_response(response_data jsonb)
+RETURNS void AS $$
+DECLARE
+    item_record jsonb;
+    test_execution_id_text text;
+    test_execution_ids text[];
+BEGIN
+    -- Iterate over each item in the response_data array
+    FOR item_record IN SELECT * FROM jsonb_array_elements(response_data)
+    LOOP
+        -- Extract values from the current item
+        test_execution_id_text := item_record->>'grp_data';
+        
+        -- Split the test_execution_id_text into an array of test_execution_ids
+        test_execution_ids := string_to_array(test_execution_id_text, '^^');
+
+        -- Iterate over each test_execution_id and insert into t_insert
+        FOR i IN array_lower(test_execution_ids, 1) .. array_upper(test_execution_ids, 1)
+        LOOP
+            INSERT INTO t_insert (test_nm, test_execution_id, proj_nm, cat_nm, cat_type)
+            SELECT 
+                (item_record->>'test_nm')::text,
+                split_part(test_execution_ids[i], '__', 1)::text,
+                (item_record->>'proj_nm')::text,
+                split_part(test_execution_ids[i], '__', 2)::text,
+                split_part(test_execution_ids[i], '__', 3)::text;
+        END LOOP;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
