@@ -1,0 +1,50 @@
+const inputText = " cat_nm : abc | cat_type: (client ) Spouse + hello -> ert | num: 123424 \n" +
+                  "cat_nm : abc | cat_type: (client ) Child + hello1 -> ert | num: 123424\n" +
+                  "cat_nm : abc | cat_type: (client ) Person + hello2 -> ert | num: 123424 \n" +
+                  "cat_nm : abc | cat_type: (client ) Child + hello3 -> ert | num: 123424\n" +
+                  "cat_nm : abc | cat_type: (client ) Spouse + hello4 -> ert | num: 123424\n" +
+                  "cat_nm : abc | cat_type: (client ) Child + hello5 -> ert | num: 123424 ";
+
+// Split the input text into lines
+const lines = inputText.split('\n');
+
+// Count the occurrences of "cat_type"
+let catTypeCount = 0;
+
+for (const line of lines) {
+    if (line.includes("cat_type:")) {
+        catTypeCount++;
+    }
+}
+
+// Check the conditions based on "cat_type"
+if (catTypeCount > 1) {
+    let hasChild = false;
+    let hasSpouse = false;
+
+    // Iterate through each line to check for "child" and "spouse"
+    for (const line of lines) {
+        if (line.includes("cat_type:")) {
+            const startIndex = line.indexOf("cat_type:") + "cat_type:".length;
+            const endIndex = line.indexOf("|", startIndex);
+            const catTypeSubstring = line.substring(startIndex, endIndex !== -1 ? endIndex : undefined).trim();
+
+            if (catTypeSubstring.toLowerCase().includes('child')) {
+                hasChild = true;
+            } else if (catTypeSubstring.toLowerCase().includes('spouse')) {
+                hasSpouse = true;
+            }
+        }
+    }
+
+    // Determine the result based on conditions
+    if (!hasChild || !hasSpouse) {
+        console.log('PERSON');
+    } else if (hasChild && hasSpouse) {
+        console.log('SPOUSE');
+    } else if (hasChild && !hasSpouse) {
+        console.log('CHILD');
+    }
+} else {
+    console.log("cat_type does not appear more than once in the input text");
+}
