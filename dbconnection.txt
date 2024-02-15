@@ -40,3 +40,5 @@ client.connect()
         console.error('Error closing the connection:', error);
       });
   });
+
+    const logStatement = `console.log('IGNORED CLIENTS - ${ignoredClients.map(client => `${client.proj_nm} (count - ${client.count_details})`).join(', ')}');`;
