@@ -82,3 +82,75 @@ export class YourComponent {
     });
   }
 }
+
+
+
+
+const express = require('express');
+const { Pool } = require('pg');
+const ExcelJS = require('exceljs');
+
+const app = express();
+const port = 3000;
+
+const pool = new Pool({
+  user: 'your_username',
+  host: 'your_host',
+  database: 'your_database',
+  password: 'your_password',
+  port: 5432,
+});
+
+app.get('/download-excel', (req, res) => {
+  const getData = async () => {
+    try {
+      const result = await pool.query('SELECT * FROM your_function_name()');
+
+      if (result.rows.length > 0) {
+        const columns = Object.keys(result.rows[0]);
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Sheet 1');
+
+        worksheet.addRow(columns);
+
+        result.rows.forEach((row) => {
+          worksheet.addRow(row);
+        });
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        
+        // Resolve the promise with the Excel file buffer
+        return buffer;
+      } else {
+        throw new Error('No data found');
+      }
+    } catch (error) {
+      console.error('Error retrieving data from PostgreSQL:', error);
+
+      // Reject the promise with an error message
+      throw new Error('Internal Server Error');
+    }
+  };
+
+  // Call the promise and handle the result
+  getData()
+    .then((excelBuffer) => {
+      // Set the content type and disposition of the response
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=your_excel_file.xlsx');
+
+      // Write the Excel buffer to the response
+      res.status(200).send(excelBuffer);
+    })
+    .catch((error) => {
+      // Handle errors
+      console.error('Error:', error);
+      res.status(500).send('Internal Server Error');
+    });
+});
+
+app.listen(port, () => {
+  console.log(`Server is running at http://localhost:${port}`);
+});
+
