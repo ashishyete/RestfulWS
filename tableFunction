@@ -28,3 +28,36 @@ BEGIN
     END LOOP;
 END;
 $$ LANGUAGE plpgsql;
+
+
+-- Create the history table if it doesn't exist
+CREATE TABLE IF NOT EXISTS price_history (
+    price_id SERIAL PRIMARY KEY,
+    name VARCHAR(255),
+    price_val NUMERIC,
+    description TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create the trigger function
+CREATE OR REPLACE FUNCTION price_update_trigger()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Insert the updated value into the main table
+    INSERT INTO price(price_id, name, price_val, description)
+    VALUES (NEW.price_id, NEW.name, NEW.price_val, NEW.description);
+
+    -- Move the previous value to the history table
+    INSERT INTO price_history(price_id, name, price_val, description)
+    VALUES (OLD.price_id, OLD.name, OLD.price_val, OLD.description);
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create the trigger
+CREATE TRIGGER price_update
+AFTER UPDATE OF price_val ON price
+FOR EACH ROW
+EXECUTE FUNCTION price_update_trigger();
+
