@@ -154,3 +154,41 @@ app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
 });
 
+const fs = require('fs');
+const createCsvWriter = require('csv-writer').createObjectCsvWriter;
+
+// Assuming you have a function that returns the data
+// Replace the function and call with your actual data retrieval logic
+function getTableData() {
+  // Replace this with your actual data retrieval logic
+  return [
+    { proj_id: 1, proj_nm: 'Project 1', error_typ: 'Error 1' },
+    { proj_id: 2, proj_nm: 'Project 2', error_typ: 'Error 2' },
+    // Add more data as needed
+  ];
+}
+
+async function createCsvFile() {
+  const data = getTableData();
+
+  // Define the CSV header
+  const header = [
+    { id: 'proj_id', title: 'Project ID' },
+    { id: 'proj_nm', title: 'Project Name' },
+    { id: 'error_typ', title: 'Error Type' },
+  ];
+
+  // Create a CSV writer with the specified header and file path
+  const csvWriter = createCsvWriter({
+    path: 'output.csv',
+    header,
+  });
+
+  // Write the data to the CSV file
+  await csvWriter.writeRecords(data);
+
+  console.log('CSV file created successfully.');
+}
+
+// Call the function to create the CSV file
+createCsvFile();
