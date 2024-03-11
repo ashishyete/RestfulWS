@@ -42,3 +42,34 @@ client.connect()
   });
 
     const logStatement = `console.log('IGNORED CLIENTS - ${ignoredClients.map(client => `${client.proj_nm} (count - ${client.count_details})`).join(', ')}');`;
+
+
+WITH ExecutionWithRowNumber AS (
+  SELECT
+    e.t_exe_id,
+    e.ex_date,
+    e.error_typ,
+    e.cat_typ,
+    e.proj_nm,
+    ROW_NUMBER() OVER (PARTITION BY e.ex_date ORDER BY e.t_exe_id) AS row_num
+  FROM
+    t_execution e
+  WHERE
+    e.ex_date = '2024-02-24'
+)
+
+SELECT
+  e.t_exe_id,
+  e.ex_date,
+  e.error_typ,
+  e.cat_typ AS cat_nm,
+  e.proj_nm,
+  e2.ex_date AS first_occurrence
+FROM
+  ExecutionWithRowNumber e
+JOIN
+  t_failure f ON e.t_exe_id = f.t_exe_id
+JOIN
+  ExecutionWithRowNumber e2 ON f.t_prev_exe_id = e2.t_exe_id AND e2.row_num = 1
+WHERE
+  e.row_num = 1;
