@@ -93,3 +93,21 @@ while true; do
     counter=$((counter + 1))
 done
 
+#!/bin/bash
+
+# URL to check
+URL="https://getdetails.com"
+
+# Check if the URL is up
+HTTP_STATUS=$(curl --write-out "%{http_code}" --silent --output /dev/null "$URL")
+
+# If the status code is 200, proceed with the main curl command
+if [ "$HTTP_STATUS" -eq 200 ]; then
+  echo "URL is up, proceeding with the main request."
+
+  curl --location 'https://getdetails.com/update' \
+  --header 'Content-Type: application/json' \
+  --data '{ "database" : "ABC", "date" : "2024-06-25"}'
+else
+  echo "URL is not reachable. Status code: $HTTP_STATUS"
+fi
