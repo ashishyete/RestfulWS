@@ -111,3 +111,7 @@ if [ "$HTTP_STATUS" -eq 200 ]; then
 else
   echo "URL is not reachable. Status code: $HTTP_STATUS"
 fi
+
+
+
+="insert into demo_table (name, id, error_typ, cat_typ, sys_date_Time, wi_number) select name, id, error_typ, cat_typ, current_date, '" & C2 & "' from demo_table where wi_number=" & A2 & ";"
