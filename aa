@@ -115,3 +115,5 @@ fi
 
 
 ="insert into demo_table (name, id, error_typ, cat_typ, sys_date_Time, wi_number) select name, id, error_typ, cat_typ, current_date, '" & C2 & "' from demo_table where wi_number=" & A2 & ";"
+
+=MID(A1, 8, 2) & "/" & TEXT(MATCH(MID(A1, 10, 3), {"JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"},0), "00") & "/20" & MID(A1, 13, 2)
