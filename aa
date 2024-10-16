@@ -117,3 +117,75 @@ fi
 ="insert into demo_table (name, id, error_typ, cat_typ, sys_date_Time, wi_number) select name, id, error_typ, cat_typ, current_date, '" & C2 & "' from demo_table where wi_number=" & A2 & ";"
 
 =MID(A1, 8, 2) & "/" & TEXT(MATCH(MID(A1, 10, 3), {"JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"},0), "00") & "/20" & MID(A1, 13, 2)
+
+
+
+
+Here's the complete code that you need for your project:
+
+Step 1: Create the .env file (e.g., test.env)
+
+Inside your project folder, create a .env file with the following content:
+
+bash
+Copy code
+project_key=application-spyder
+project_name=spyder
+Step 2: Install dotenv package
+
+Run the following command in your project directory to install the dotenv package:
+
+bash
+Copy code
+npm install dotenv
+
+
+Step 3: Create the script to generate sonar-project.properties (e.g., generate-sonar-properties.js)
+
+Inside your project folder, create a file named generate-sonar-properties.js with the following content:
+
+javascript
+Copy code
+const fs = require('fs');
+const dotenv = require('dotenv');
+
+// Load the .env file
+dotenv.config({ path: './test.env' });
+
+// Create the sonar-project.properties content
+const sonarProperties = `
+sonar.projectKey=${process.env.project_key}
+sonar.projectName=${process.env.project_name}
+`;
+
+// Write the content to sonar-project.properties
+fs.writeFileSync('sonar-project.properties', sonarProperties, 'utf8');
+
+console.log('sonar-project.properties file has been generated.');
+Step 4: Update package.json scripts
+
+Open your package.json file and update the "scripts" section like this:
+
+json
+Copy code
+{
+  "scripts": {
+    "generate-sonar-properties": "node generate-sonar-properties.js"
+  }
+}
+Step 5: Run the script
+
+Whenever you need to generate the sonar-project.properties file, run the following command:
+
+bash
+Copy code
+npm run generate-sonar-properties
+This script will load the environment variables from the .env file and dynamically generate a sonar-project.properties file with the correct values. You can adjust the .env file for different environments without modifying your SonarQube configuration.
+
+
+
+
+
+
+
+
