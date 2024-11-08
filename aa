@@ -185,6 +185,74 @@ This script will load the environment variables from the .env file and dynamical
 
 
 
+// emailNotification.test.js
+const nodemailer = require('nodemailer');
+const { createMailOptions, sendEmail } = require('./emailNotification');
+
+jest.mock('nodemailer'); // Mock the nodemailer module
+
+describe('Email Notification Tests', () => {
+  let sendMailMock;
+
+  beforeAll(() => {
+    // Set up a mock transporter with a sendMail mock function
+    sendMailMock = jest.fn().mockImplementation((mailOptions, callback) => {
+      callback(null, 'Email sent');
+    });
+    nodemailer.createTransport.mockReturnValue({
+      sendMail: sendMailMock,
+    });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks(); // Clear mocks after each test
+  });
+
+  test('createMailOptions should return correct mail options', () => {
+    const subject = 'Test Subject';
+    const text = 'Test Text';
+    const html = '<p>Test HTML</p>';
+
+    const mailOptions = createMailOptions(subject, text, html);
+
+    expect(mailOptions).toEqual({
+      from: 'demo@demo.com',
+      to: 'demo@demo.com',
+      subject: subject,
+      text: text,
+      html: html,
+    });
+  });
+
+  test('sendEmail should call transporter.sendMail with correct options', async () => {
+    const subject = 'Test Subject';
+    const text = 'Test Text';
+    const html = '<p>Test HTML</p>';
+
+    await expect(sendEmail(subject, text, html)).resolves.toBe('Email sent');
+
+    // Verify sendMail was called with the expected mail options
+    expect(sendMailMock).toHaveBeenCalledWith(
+      {
+        from: 'demo@demo.com',
+        to: 'demo@demo.com',
+        subject: subject,
+        text: text,
+        html: html,
+      },
+      expect.any(Function)
+    );
+  });
+
+  test('sendEmail should handle errors correctly', async () => {
+    const errorMessage = 'Error sending email';
+    sendMailMock.mockImplementationOnce((mailOptions, callback) => {
+      callback(new Error(errorMessage), null);
+    });
+
+    await expect(sendEmail('Subject', 'Text', 'HTML')).rejects.toThrow(errorMessage);
+  });
+});
 
 
 
