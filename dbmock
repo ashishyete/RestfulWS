@@ -1,0 +1,45 @@
+dbmock
+
+  const dbUtils = require('./path/to/dbUtils');
+const { getCatLevelDetails } = require('./path/to/yourModule'); // adjust path
+
+jest.mock('./path/to/dbUtils'); // Mock dbUtils module
+
+describe('getCatLevelDetails', () => {
+    it('should resolve with the correct result when the database call is successful', async () => {
+        const mockResult = { data: 'Expected Result' };
+        dbUtils.executeQueryAndReturnResponse.mockImplementation((_, __, ___, ____, callback) => {
+            callback(null, mockResult); // Simulate success response
+        });
+
+        const projName = 'testProject';
+        const result = await getCatLevelDetails(projName);
+
+        expect(result).toEqual(mockResult);
+        expect(dbUtils.executeQueryAndReturnResponse).toHaveBeenCalledWith(
+            expect.any(String), // __dirname
+            '/Queries/myquery.xml',
+            'getCatLevelDetails',
+            { proj_nm: projName },
+            expect.any(Function) // callback
+        );
+    });
+
+    it('should reject with an error when the database call fails', async () => {
+        const mockError = new Error('Database error');
+        dbUtils.executeQueryAndReturnResponse.mockImplementation((_, __, ___, ____, callback) => {
+            callback(mockError, null); // Simulate error response
+        });
+
+        const projName = 'testProject';
+
+        await expect(getCatLevelDetails(projName)).rejects.toThrow('Database error');
+        expect(dbUtils.executeQueryAndReturnResponse).toHaveBeenCalledWith(
+            expect.any(String), // __dirname
+            '/Queries/myquery.xml',
+            'getCatLevelDetails',
+            { proj_nm: projName },
+            expect.any(Function) // callback
+        );
+    });
+});
