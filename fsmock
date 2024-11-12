@@ -1,0 +1,89 @@
+fsmock
+const fs = require('fs');
+const parser = require('xml2js');
+const XmlUtils = require('./path/to/XmlUtils');
+
+// Mock fs.readFileSync and parser.parseString
+jest.mock('fs');
+jest.mock('xml2js');
+
+describe('XmlUtils', () => {
+    let xmlUtils;
+
+    beforeEach(() => {
+        xmlUtils = new XmlUtils();
+    });
+
+    it('should return the correct query string for a given queryId', (done) => {
+        const mockXmlContent = `
+            <sql-request>
+                <sql-request>
+                    <query id="query1">SELECT * FROM users</query>
+                    <query id="query2">SELECT * FROM orders</query>
+                </sql-request>
+            </sql-request>
+        `;
+
+        const expectedQuery = 'SELECT * FROM users';
+
+        fs.readFileSync.mockReturnValue(mockXmlContent);
+        parser.parseString.mockImplementation((content, callback) => {
+            const parsedResult = {
+                "sql-request": {
+                    "sql-request": [
+                        { $: { id: "query1" }, _: "SELECT * FROM users" },
+                        { $: { id: "query2" }, _: "SELECT * FROM orders" }
+                    ]
+                }
+            };
+            callback(null, parsedResult);
+        });
+
+        xmlUtils.getQueryfromXML('dummyPath', 'query1', (err, query) => {
+            expect(err).toBeNull();
+            expect(query).toBe(expectedQuery);
+            done();
+        });
+    });
+
+    it('should return an error when the queryId is not found', (done) => {
+        const mockXmlContent = `
+            <sql-request>
+                <sql-request>
+                    <query id="query1">SELECT * FROM users</query>
+                </sql-request>
+            </sql-request>
+        `;
+
+        fs.readFileSync.mockReturnValue(mockXmlContent);
+        parser.parseString.mockImplementation((content, callback) => {
+            const parsedResult = {
+                "sql-request": {
+                    "sql-request": [
+                        { $: { id: "query1" }, _: "SELECT * FROM users" }
+                    ]
+                }
+            };
+            callback(null, parsedResult);
+        });
+
+        xmlUtils.getQueryfromXML('dummyPath', 'query2', (err, query) => {
+            expect(err).toBe('Error');
+            expect(query).toBeUndefined();
+            done();
+        });
+    });
+
+    it('should handle XML parsing errors', (done) => {
+        fs.readFileSync.mockReturnValue('<invalid xml>');
+        parser.parseString.mockImplementation((content, callback) => {
+            callback(new Error('Parsing error'), null);
+        });
+
+        xmlUtils.getQueryfromXML('dummyPath', 'query1', (err, query) => {
+            expect(err).toBe('Error');
+            expect(query).toBeUndefined();
+            done();
+        });
+    });
+});
