@@ -1,0 +1,57 @@
+const request = require('supertest');
+const express = require('express');
+const router = require('./path/to/your/router'); // Adjust the path to your router
+const ProjectStatusService = require('../../ProjectStatusService');
+
+jest.mock('../../ProjectStatusService'); // Mock the service
+
+describe('GET /clients/:clientList/get-statuses', () => {
+    let app;
+
+    beforeAll(() => {
+        app = express();
+        app.use(express.json());
+        app.use('/', router); // Attach your router to the express instance
+    });
+
+    it('should return statuses successfully with a 200 status', async () => {
+        // Mock the implementation of getStatuses to return a sample response
+        const mockData = [{ id: 1, status: 'active' }];
+        ProjectStatusService.prototype.getStatues = jest.fn().mockResolvedValue(mockData);
+
+        const clientList = 'clientA,clientB';
+
+        const response = await request(app).get(`/clients/${clientList}/get-statuses`);
+
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual({ status: 'success', data: mockData });
+    });
+
+    it('should handle service rejection with a 500 status', async () => {
+        // Mock the implementation of getStatuses to reject
+        const mockRejection = 'Service error';
+        ProjectStatusService.prototype.getStatues = jest.fn().mockRejectedValue(mockRejection);
+
+        const clientList = 'clientA,clientB';
+
+        const response = await request(app).get(`/clients/${clientList}/get-statuses`);
+
+        expect(response.status).toBe(500);
+        expect(response.body).toEqual({ status: 'failed', data: mockRejection });
+    });
+
+    it('should handle errors thrown in the catch block with a 500 status', async () => {
+        // Simulate an error in the promise chain
+        const mockError = new Error('Unexpected error');
+        ProjectStatusService.prototype.getStatues = jest.fn().mockImplementation(() => {
+            throw mockError;
+        });
+
+        const clientList = 'clientA,clientB';
+
+        const response = await request(app).get(`/clients/${clientList}/get-statuses`);
+
+        expect(response.status).toBe(500);
+        expect(response.body).toEqual({ status: 'failed', data: mockError.message });
+    });
+});
