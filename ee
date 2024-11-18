@@ -1,0 +1,48 @@
+const ConfigureApplication = require('./ConfigureApplication');
+
+describe('ConfigureApplication Singleton Class', () => {
+  let instance1, instance2;
+
+  beforeEach(() => {
+    jest.resetModules(); // Clear module cache to ensure a clean test
+  });
+
+  test('should return the same instance for multiple initializations', () => {
+    instance1 = new ConfigureApplication();
+    instance2 = new ConfigureApplication();
+
+    // Verify that both instances are the same
+    expect(instance1).toBe(instance2);
+  });
+
+  test('should set nonaks_appName based on HOST_NAME (test1)', () => {
+    // Ensure HOST_NAME is 'test1' as per class implementation
+    const instance = new ConfigureApplication();
+
+    expect(instance.nonaks_appName).toBe("test1.test.com");
+  });
+
+  test('should set nonaks_appName to "prod" by default', () => {
+    // Temporarily change HOST_NAME for this test
+    jest.doMock('./ConfigureApplication', () => {
+      const HOST_NAME = 'unknown'; // Simulate unknown HOST_NAME
+      return require.requireActual('./ConfigureApplication');
+    });
+
+    const instance = new ConfigureApplication();
+
+    expect(instance.nonaks_appName).toBe("prod");
+  });
+
+  test('should not reinitialize properties on subsequent calls', () => {
+    // First initialization
+    const instance1 = new ConfigureApplication();
+    instance1.nonaks_appName = "modified.test.com";
+
+    // Second initialization
+    const instance2 = new ConfigureApplication();
+
+    // Verify that the change persists due to singleton behavior
+    expect(instance2.nonaks_appName).toBe("modified.test.com");
+  });
+});
