@@ -1,0 +1,22 @@
+sudo nano /etc/systemd/system/mount-jenkins_data.service
+
+
+[Unit]
+Description=Ensure /mnt/jenkins_data Mount
+After=network.target
+
+[Service]
+ExecStart=/bin/sh -c '
+if [ -d /mnt/jenkins_data ]; then
+    echo "/mnt/jenkins_data already exists"
+else
+    echo "Creating /mnt/jenkins_data directory"
+    mkdir -p /mnt/jenkins_data
+fi
+echo "Mounting /mnt/jenkins_data"
+mount /mnt/jenkins_data
+'
+Type=oneshot
+
+[Install]
+WantedBy=multi-user.target
