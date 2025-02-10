@@ -292,3 +292,6 @@ const sendEmail = (subject, text, html) => {
 module.exports = { sendEmail, createMailOptions };
 
 
+nohup java -jar agent.jar -jnlpUrl http://your-vm-ip:8080/computer/agent-1/slave-agent.jnlp -secret <SECRET_KEY> > agent.log 2>&1 &
+
+
