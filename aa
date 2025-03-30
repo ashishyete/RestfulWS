@@ -294,4 +294,11 @@ module.exports = { sendEmail, createMailOptions };
 
 nohup java -jar agent.jar -jnlpUrl http://your-vm-ip:8080/computer/agent-1/slave-agent.jnlp -secret <SECRET_KEY> > agent.log 2>&1 &
 
+echo '<com.cloudbees.plugins.credentials.impl.FileCredentialsImpl>
+  <scope>GLOBAL</scope>
+  <id>minikube-kubeconfig</id>
+  <description>Kubeconfig for Minikube</description>
+  <fileName>kubeconfig.yaml</fileName>
+  <secretBytes>'$(cat kubeconfig.yaml | base64)'</secretBytes>
+</com.cloudbees.plugins.credentials.impl.FileCredentialsImpl>' | java -jar jenkins-cli.jar -s http://localhost:8080/ create-credentials-by-xml system::system::jenkins _ < /dev/stdin
 
