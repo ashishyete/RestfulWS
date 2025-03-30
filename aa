@@ -302,3 +302,10 @@ echo '<com.cloudbees.plugins.credentials.impl.FileCredentialsImpl>
   <secretBytes>'$(cat kubeconfig.yaml | base64)'</secretBytes>
 </com.cloudbees.plugins.credentials.impl.FileCredentialsImpl>' | java -jar jenkins-cli.jar -s http://localhost:8080/ create-credentials-by-xml system::system::jenkins _ < /dev/stdin
 
+<com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl>
+    <scope>GLOBAL</scope>
+    <id>my-k8s-credentials</id>
+    <username>k8s-user</username>
+    <password>k8s-password</password>
+    <description>My Kubernetes Credentials</description>
+</com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl>
