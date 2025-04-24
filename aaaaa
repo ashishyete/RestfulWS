@@ -1,0 +1,157 @@
+// Main Application
+@SpringBootApplication
+public class JobRunrApp {
+    public static void main(String[] args) {
+        SpringApplication.run(JobRunrApp.class, args);
+    }
+}
+
+// Entity: JobSchedule.java
+@Entity
+public class JobSchedule {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String jobName;
+    private String cronExpression;
+    private boolean enabled;
+
+    // Getters & Setters
+}
+
+// Repository: JobScheduleRepository.java
+public interface JobScheduleRepository extends JpaRepository<JobSchedule, Long> {
+}
+
+// Service: EtlJobService.java
+@Service
+public class EtlJobService {
+    public void runEtl() {
+        System.out.println("Running ETL job at: " + LocalDateTime.now());
+        // Actual ETL logic goes here
+    }
+}
+
+// Scheduler Initializer: JobSchedulerInitializer.java
+@Component
+public class JobSchedulerInitializer {
+
+    private final JobScheduleRepository jobScheduleRepository;
+    private final JobScheduler jobScheduler;
+    private final EtlJobService etlJobService;
+
+    public JobSchedulerInitializer(JobScheduleRepository repo, JobScheduler scheduler, EtlJobService service) {
+        this.jobScheduleRepository = repo;
+        this.jobScheduler = scheduler;
+        this.etlJobService = service;
+    }
+
+    @PostConstruct
+    public void scheduleInitialJobs() {
+        List<JobSchedule> jobs = jobScheduleRepository.findAll()
+                .stream()
+                .filter(JobSchedule::isEnabled)
+                .toList();
+
+        for (JobSchedule job : jobs) {
+            jobScheduler.scheduleRecurrently(job.getJobName(), CronExpression.parse(job.getCronExpression()), () ->
+                etlJobService.runEtl()
+            );
+        }
+    }
+
+    @Scheduled(fixedRate = 60000)
+    public void checkForNewJobs() {
+        List<JobSchedule> jobs = jobScheduleRepository.findAll()
+                .stream()
+                .filter(JobSchedule::isEnabled)
+                .filter(job -> !jobScheduler.hasRecurringJob(job.getJobName()))
+                .toList();
+
+        for (JobSchedule job : jobs) {
+            jobScheduler.scheduleRecurrently(job.getJobName(), CronExpression.parse(job.getCronExpression()), () ->
+                etlJobService.runEtl()
+            );
+        }
+    }
+}
+
+// REST Controller: JobScheduleController.java
+@RestController
+@RequestMapping("/jobs")
+public class JobScheduleController {
+
+    private final JobScheduleRepository jobScheduleRepository;
+    private final JobScheduler jobScheduler;
+    private final EtlJobService etlJobService;
+
+    public JobScheduleController(JobScheduleRepository repo, JobScheduler scheduler, EtlJobService service) {
+        this.jobScheduleRepository = repo;
+        this.jobScheduler = scheduler;
+        this.etlJobService = service;
+    }
+
+    @PostMapping("/add")
+    public ResponseEntity<Void> addJob(@RequestBody JobSchedule job) {
+        jobScheduleRepository.save(job);
+
+        if (job.isEnabled()) {
+            jobScheduler.scheduleRecurrently(job.getJobName(), CronExpression.parse(job.getCronExpression()), () ->
+                etlJobService.runEtl()
+            );
+        }
+
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping
+    public List<JobSchedule> getAllJobs() {
+        return jobScheduleRepository.findAll();
+    }
+}
+
+// application.yml
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: password
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+jobrunr:
+  background-job-server-enabled: true
+  dashboard:
+    enabled: true
+    port: 8000
+
+# Scheduler Enable
+@EnableScheduling
+@Configuration
+class SchedulerConfig {}
+
+// pom.xml (relevant parts)
+<dependencies>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>com.h2database</groupId>
+        <artifactId>h2</artifactId>
+        <scope>runtime</scope>
+    </dependency>
+    <dependency>
+        <groupId>org.jobrunr</groupId>
+        <artifactId>jobrunr-spring-boot-3-starter</artifactId>
+        <version>6.2.3</version>
+    </dependency>
+</dependencies>
